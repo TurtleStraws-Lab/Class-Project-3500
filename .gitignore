@@ -1,0 +1,28 @@
+#NAME: Nicole Flanders
+#ASGT: Class Project
+#ORGIN: CSUB-CMPS 3500
+#FILE: .gitignore
+#DATE: 11/23/2025
+#------------------------------------------------------------------------------
+
+# Compiled class files
+*.class
+
+# Package Files
+*.jar
+*.war
+*.ear
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.swp
+*.swo
+*~
