@@ -20,24 +20,44 @@ void loadData(const std::string& filename) {
     dataset.headers.clear();
     
     std::string line;
-    if (std::getline(file, line)) {
-        std::stringstream ss(line);
-        std::string token;
-        while (std::getline(ss, token, ',')) {
-            token.erase(std::remove(token.begin(), token.end(), ' '), token.end());
-            dataset.headers.push_back(token);
-        }
+    if (!std::getline(file, line)) {
+        std::cerr << "Empty file or no header found\n";
+        return;
     }
     
-    std::cout << "Columns found:\n";
+    std::stringstream ss(line);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+        token.erase(std::remove(token.begin(), token.end(), ' '), token.end());
+        if (token.empty()) {
+            token = "(empty_col_" + std::to_string(dataset.headers.size()) + ")";
+        }
+        dataset.headers.push_back(token);
+    }
+    
+    if (dataset.headers.empty()) {
+        std::cerr << "No columns found in header\n";
+        return;
+    }
+    
+    std::cout << "\nAvailable columns (" << dataset.headers.size() << " total):\n";
     for (size_t i = 0; i < dataset.headers.size(); i++)
-        std::cout << i << ": " << dataset.headers[i] << "\n";
+        std::cout << "  [" << i << "] " << dataset.headers[i] << "\n";
     
     int targetCol;
-    std::cout << "Enter the column number to use as target: ";
+    std::cout << "\nEnter the column number to use as target: ";
     std::cin >> targetCol;
     
+    if (targetCol < 0 || targetCol >= (int)dataset.headers.size()) {
+        std::cerr << "Invalid target column\n";
+        return;
+    }
+    
+    int lineNum = 1;
     while (std::getline(file, line)) {
+        lineNum++;
+        if (line.empty()) continue;
+        
         std::stringstream ss(line);
         std::string token;
         std::vector<double> row;
@@ -45,9 +65,10 @@ void loadData(const std::string& filename) {
         
         while (std::getline(ss, token, ',')) {
             token.erase(std::remove(token.begin(), token.end(), ' '), token.end());
+            
             if (colIndex == targetCol) {
                 dataset.y.push_back(token == ">50K" ? 1 : 0);
-            } else {
+            } else if (colIndex < (int)dataset.headers.size()) {
                 try { 
                     row.push_back(std::stod(token)); 
                 }
@@ -57,7 +78,22 @@ void loadData(const std::string& filename) {
             }
             colIndex++;
         }
-        dataset.X.push_back(row);
+        
+        if (!row.empty()) {
+            dataset.X.push_back(row);
+        }
+    }
+    
+    if (dataset.X.empty() || dataset.y.empty()) {
+        std::cerr << "No valid data loaded\n";
+        dataset.loaded = false;
+        return;
+    }
+    
+    if (dataset.X.size() != dataset.y.size()) {
+        std::cerr << "Mismatch between features and labels\n";
+        dataset.loaded = false;
+        return;
     }
     
     dataset.loaded = true;
@@ -83,7 +119,7 @@ void splitDataset(double trainFraction) {
     dataset.X_test.clear();
     dataset.y_test.clear();
     
-    for (size_t i = 0; i < n; ++i) {
+    for (size_t i = 0; i < n; i++) {
         if (i < trainSize) {
             dataset.X_train.push_back(dataset.X[indices[i]]);
             dataset.y_train.push_back(dataset.y[indices[i]]);
