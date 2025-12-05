@@ -1,4 +1,11 @@
-// Procedural.cpp
+//***********************************************************
+//NAME: Moises Gonzalez
+//ASGT: Class Project
+//ORGN: CSUB-CMPS 3500
+//FILE: Procedural.cpp
+//DATE: 11/10/2025
+//MEMBRs: Nicole Flanders, Vanessa Figueroa, Daniel Avalos. 
+//***********************************************************
 #include <iostream>
 #include <vector>
 #include <string>
