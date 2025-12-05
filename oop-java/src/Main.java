@@ -189,7 +189,7 @@ public class Main {
             double r2 = Metrics.r2Score(y_test_reg, y_pred_test);
         
             // Count the SLOC
-            int sloc = 155;
+            int sloc = countSloc("models/LinearRegression.java");
         
             // Display the results
             System.out.println("\nOutputs:");
@@ -278,7 +278,7 @@ public class Main {
             double macroF1 = Metrics.macroF1(y_test, y_pred_test);
 
             // Count the SLOC
-            int sloc = 116;
+            int sloc = countSloc("models/LogisticRegression.java");
 
             // Display the results that I got
             System.out.println("\nOutputs:");
@@ -346,7 +346,7 @@ public class Main {
             double macroF1 = Metrics.macroF1(y_test, y_pred_test);
 
             //Count the SLOC
-            int sloc = 93;
+            int sloc = countSloc("models/KNearestNeighbors.java");
 
             // Display the results that I got
             System.out.println("\nOutputs:");
@@ -409,7 +409,7 @@ public class Main {
         double macroF1 = Metrics.macroF1(y_test, y_pred_test);
 
         // Count SLOC
-        int sloc = 164;
+        int sloc = countSloc("models/DecisionTree.java");
 
         // Display results
         System.out.println("\nOutputs:");
@@ -469,7 +469,7 @@ public class Main {
             double macroF1 = Metrics.macroF1(y_test_nb, y_pred_test);
         
             // Count the SLOC
-            int sloc = 117;
+            int sloc = countSloc("models/GaussianNaiveBayes.java");
         
             // Display results that I got
             System.out.println("\nOutputs:");
@@ -490,9 +490,53 @@ public class Main {
         }
     }
     
+    
+    //For the SLOC
+    private static int countSloc(String filepath) {
+    int sloc = 0;
+    boolean inMultilineComment = false;
+
+    try (java.io.BufferedReader reader = new java.io.BufferedReader(
+            new java.io.FileReader(filepath))) {
+        String line;
+
+        while ((line = reader.readLine()) != null) {
+            String trimmed = line.trim();
+
+            // Check for multiline comments
+            if (trimmed.startsWith("/*")) {
+                inMultilineComment = true;
+            }
+
+            if (inMultilineComment) {
+                if (trimmed.endsWith("*/")) {
+                    inMultilineComment = false;
+                }
+                continue;
+            }
+
+            // Skip lines that are blans
+            if (trimmed.isEmpty() || trimmed.startsWith("//") ||
+                trimmed.equals("*") || trimmed.startsWith("* ")) {
+                continue;
+            }
+
+            sloc++;
+        }
+
+    } catch (Exception e) {
+        System.err.println("Error counting SLOC: " + e.getMessage());
+        return 0;
+    }
+
+    return sloc;
+}
+
     private static void printResults() {
-    System.out.println("\nGeneral Results (Comparison):");
-    System.out.println("*****************************");
+    String implName = results.isEmpty() ? "<Implementation Name>" : results.get(0).getImplementation();
+
+    System.out.println("\n" + implName + " Results:");
+    System.out.println("  ******************************");
 
     if (results.isEmpty()) {
         System.out.println("No results yet. Run some algorithms first!");
@@ -501,25 +545,19 @@ public class Main {
 
     // Print the header
     System.out.println(String.format(
-        "%-6s %-25s %-12s %-12s %-12s %-12s %-12s %-8s",
-        "Impl", "Algorithm", "TrainTime(s)",
-        "Metric1", "Value1",
-        "Metric2", "Value2",
-        "SLOC"
+        "  %-24s %-22s %-16s %-16s %-16s %-10s",
+        "Impl", "Algorithm", "TrainTime", "TestMetric1", "TestMetric2", "SLOC"
     ));
     
-    System.out.println(String.join("", java.util.Collections.nCopies(115, "=")));
 
     // Print the result result
     for (AlgorithmResult result : results) {
         System.out.println(String.format(
-            "%-6s %-25s %-12.3f %-12s %-12.4f %-12s %-12.4f %-8d",
+            "  %-24s %-22s %-16.3f %-16.4f %-16.4f %-10d",
             result.getImplementation(),
             result.getAlgorithm(),
             result.getTrainTime(),
-            result.getMetric1Name(),
             result.getMetric1(),
-            result.getMetric2Name(),
             result.getMetric2(),
             result.getSloc()
         ));
