@@ -6,11 +6,13 @@
 //DATE: 11/10/2025
 //MEMBRs: Nicole Flanders, Vanessa Figueroa, Daniel Avalos. 
 //***********************************************************
+
 #include <iostream>
 #include <vector>
 #include <string>
 #include <chrono>
 #include <iomanip>
+#include <limits>
 
 #include "loadData.h"
 #include "LinearRegression.h"
@@ -31,6 +33,41 @@ GaussianNBModel gnb_model;
 
 static std::vector<double> ints_to_doubles(const std::vector<int>& v) {
     return std::vector<double>(v.begin(), v.end());
+}
+
+std::string select_dataset() {
+    std::cout << "\nPick dataset from list:\n\n";
+    std::cout << "  1. adult_income_cleaned.csv\n";
+    std::cout << "  2. adult_income_demo0.csv\n";
+    std::cout << "  3. adult_income_demo1.csv\n";
+    std::cout << "  4. adult_income_demo2.csv\n";
+    std::cout << "  5. adult_income_demo3.csv\n";
+    std::cout << "  6. adult_income_demo4.csv\n";
+    std::cout << "\nEnter an option: ";
+
+    int option = 1;
+    if (!(std::cin >> option)) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        option = 1;
+    }
+
+    std::string filename;
+    switch (option) {
+        case 1: filename = "adult_income_cleaned.csv"; break;
+        case 2: filename = "adult_income_demo0.csv";   break;
+        case 3: filename = "adult_income_demo1.csv";   break;
+        case 4: filename = "adult_income_demo2.csv";   break;
+        case 5: filename = "adult_income_demo3.csv";   break;
+        case 6: filename = "adult_income_demo4.csv";   break;
+        default:
+            std::cout << "Invalid option. Using default adult_income_cleaned.csv\n";
+            filename = "adult_income_cleaned.csv";
+            break;
+    }
+
+    // Files are expected to be in the same directory as the executable (Project/)
+    return filename;
 }
 
 void printResults() {
@@ -115,18 +152,19 @@ int main() {
         }
 
         if (choice == 1) {
-            std::string filename;
-            std::cout << "Enter CSV filename: ";
-            std::cin >> filename;
+            std::string filename = select_dataset();
+            std::cout << "Loading data from: " << filename << "\n";
+
             loadData(filename);
             splitDataset();
+
             std::cout << "Loaded " << dataset.X.size() << " samples.\n";
-            if (!dataset.X.empty()) 
+            if (!dataset.X.empty())
                 std::cout << "Feature count: " << dataset.X[0].size() << "\n";
         }
         else if (choice == 2) {
             if (dataset.X_train.empty()) { 
-                std::cout << "Load data first.\n"; 
+                std::cout << "Load data first.\n"; 1
                 continue; 
             }
             
