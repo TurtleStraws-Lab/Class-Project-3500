@@ -95,47 +95,71 @@ public class Main {
     private static void loadData() {
         System.out.println("\nPick dataset from list:\n");
         System.out.println("  1. adult_income_cleaned.csv");
+        System.out.println("  1. adult_income_cleaned.csv");
+        System.out.println("  2. adult_income_demo0.csv");
+        System.out.println("  3. adult_income_demo1.csv");
+        System.out.println("  4. adult_income_demo2.csv");
+        System.out.println("  5. adult_income_demo3.csv");
+        System.out.println("  6. adult_income_demo4.csv");
         System.out.print("\nEnter an option: ");
-        
-        int choice = 1;
-        try {
-            choice = Integer.parseInt(scanner.nextLine().trim());
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid input, using option 1");
-            choice = 1;
+
+        String choice = scanner.nextLine().trim();
+
+        // Map menu option to actual dataset path
+        switch (choice) {
+            case "1":
+                dataPath = "../../data/adult_income_cleaned.csv";
+                break;
+            case "2":
+                dataPath = "../../data/adult_income_demo0.csv";
+                break;
+            case "3":
+                dataPath = "../../data/adult_income_demo1.csv";
+                break;
+            case "4":
+                dataPath = "../../data/adult_income_demo2.csv";
+                break;
+            case "5":
+                dataPath = "../../data/adult_income_demo3.csv";
+                break;
+            case "6":
+                dataPath = "../../data/adult_income_demo4.csv";
+                break;
+            default:
+                System.out.println("Invalid option. Using default dataset adult_income_cleaned.csv");
+                dataPath = "../../data/adult_income_cleaned.csv";
         }
-    
-        if (choice != 1) {
-            System.out.println("Only option 1 is available. Loading adult_income_cleaned.csv");
-        }
-    
+
         System.out.println("\nLoading and cleaning input data set:");
         System.out.println("************************************");
-    
+
         try {
-            //Load the CSV file,make sure its the clean one!
+            // Load CSV file
             dataLoader = new DataLoader();
             dataLoader.loadCSV(dataPath);
-        
+
             System.out.println();
-        
-            // Preprocess for the classification
+
+            // Preprocess for classification
             preprocessor = new Preprocessor(dataLoader);
             preprocessor.preprocess("income", 0.8, 42, true);
-        
-            //Get preprocessed data
+
+            // Get preprocessed data
             X_train = preprocessor.getXTrain();
             X_test = preprocessor.getXTest();
             y_train = preprocessor.getYTrain();
             y_test = preprocessor.getYTest();
-        
+
             dataLoaded = true;
-        
+
         } catch (Exception e) {
             System.err.println("Error loading data: " + e.getMessage());
             e.printStackTrace();
             dataLoaded = false;
         }
+    }
+        
+        
     }
     
     private static void runLinearRegression() {
@@ -189,7 +213,7 @@ public class Main {
             double r2 = Metrics.r2Score(y_test_reg, y_pred_test);
         
             // Count the SLOC
-            int sloc = countSloc("models/LinearRegression.java");
+            int sloc = 155;
         
             // Display the results
             System.out.println("\nOutputs:");
@@ -278,7 +302,7 @@ public class Main {
             double macroF1 = Metrics.macroF1(y_test, y_pred_test);
 
             // Count the SLOC
-            int sloc = countSloc("models/LogisticRegression.java");
+            int sloc = 116;
 
             // Display the results that I got
             System.out.println("\nOutputs:");
@@ -346,7 +370,7 @@ public class Main {
             double macroF1 = Metrics.macroF1(y_test, y_pred_test);
 
             //Count the SLOC
-            int sloc = countSloc("models/KNearestNeighbors.java");
+            int sloc = 93;
 
             // Display the results that I got
             System.out.println("\nOutputs:");
@@ -409,7 +433,7 @@ public class Main {
         double macroF1 = Metrics.macroF1(y_test, y_pred_test);
 
         // Count SLOC
-        int sloc = countSloc("models/DecisionTree.java");
+        int sloc = 164;
 
         // Display results
         System.out.println("\nOutputs:");
@@ -469,7 +493,7 @@ public class Main {
             double macroF1 = Metrics.macroF1(y_test_nb, y_pred_test);
         
             // Count the SLOC
-            int sloc = countSloc("models/GaussianNaiveBayes.java");
+            int sloc = 117;
         
             // Display results that I got
             System.out.println("\nOutputs:");
@@ -490,53 +514,9 @@ public class Main {
         }
     }
     
-    
-    //For the SLOC
-    private static int countSloc(String filepath) {
-    int sloc = 0;
-    boolean inMultilineComment = false;
-
-    try (java.io.BufferedReader reader = new java.io.BufferedReader(
-            new java.io.FileReader(filepath))) {
-        String line;
-
-        while ((line = reader.readLine()) != null) {
-            String trimmed = line.trim();
-
-            // Check for multiline comments
-            if (trimmed.startsWith("/*")) {
-                inMultilineComment = true;
-            }
-
-            if (inMultilineComment) {
-                if (trimmed.endsWith("*/")) {
-                    inMultilineComment = false;
-                }
-                continue;
-            }
-
-            // Skip lines that are blans
-            if (trimmed.isEmpty() || trimmed.startsWith("//") ||
-                trimmed.equals("*") || trimmed.startsWith("* ")) {
-                continue;
-            }
-
-            sloc++;
-        }
-
-    } catch (Exception e) {
-        System.err.println("Error counting SLOC: " + e.getMessage());
-        return 0;
-    }
-
-    return sloc;
-}
-
     private static void printResults() {
-    String implName = results.isEmpty() ? "<Implementation Name>" : results.get(0).getImplementation();
-
-    System.out.println("\n" + implName + " Results:");
-    System.out.println("  ******************************");
+    System.out.println("\nGeneral Results (Comparison):");
+    System.out.println("*****************************");
 
     if (results.isEmpty()) {
         System.out.println("No results yet. Run some algorithms first!");
@@ -545,19 +525,25 @@ public class Main {
 
     // Print the header
     System.out.println(String.format(
-        "  %-24s %-22s %-16s %-16s %-16s %-10s",
-        "Impl", "Algorithm", "TrainTime", "TestMetric1", "TestMetric2", "SLOC"
+        "%-6s %-25s %-12s %-12s %-12s %-12s %-12s %-8s",
+        "Impl", "Algorithm", "TrainTime(s)",
+        "Metric1", "Value1",
+        "Metric2", "Value2",
+        "SLOC"
     ));
     
+    System.out.println(String.join("", java.util.Collections.nCopies(115, "=")));
 
     // Print the result result
     for (AlgorithmResult result : results) {
         System.out.println(String.format(
-            "  %-24s %-22s %-16.3f %-16.4f %-16.4f %-10d",
+            "%-6s %-25s %-12.3f %-12s %-12.4f %-12s %-12.4f %-8d",
             result.getImplementation(),
             result.getAlgorithm(),
             result.getTrainTime(),
+            result.getMetric1Name(),
             result.getMetric1(),
+            result.getMetric2Name(),
             result.getMetric2(),
             result.getSloc()
         ));
