@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <iterator>
 #include <random>
+#include <map>
 
 Dataset dataset;
 
@@ -53,6 +54,9 @@ void loadData(const std::string& filename) {
         return;
     }
     
+    std::map<std::string, int> targetMapping;
+    int nextLabel = 0;
+    
     int lineNum = 1;
     while (std::getline(file, line)) {
         lineNum++;
@@ -62,12 +66,13 @@ void loadData(const std::string& filename) {
         std::string token;
         std::vector<double> row;
         int colIndex = 0;
+        std::string targetValue;
         
         while (std::getline(ss, token, ',')) {
             token.erase(std::remove(token.begin(), token.end(), ' '), token.end());
             
             if (colIndex == targetCol) {
-                dataset.y.push_back(token == ">50K" ? 1 : 0);
+                targetValue = token;
             } else if (colIndex < (int)dataset.headers.size()) {
                 try { 
                     row.push_back(std::stod(token)); 
@@ -77,6 +82,13 @@ void loadData(const std::string& filename) {
                 }
             }
             colIndex++;
+        }
+        
+        if (!targetValue.empty()) {
+            if (targetMapping.find(targetValue) == targetMapping.end()) {
+                targetMapping[targetValue] = nextLabel++;
+            }
+            dataset.y.push_back(targetMapping[targetValue]);
         }
         
         if (!row.empty()) {
