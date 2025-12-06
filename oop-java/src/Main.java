@@ -95,6 +95,11 @@ public class Main {
     private static void loadData() {
         System.out.println("\nPick dataset from list:\n");
         System.out.println("  1. adult_income_cleaned.csv");
+        System.out.println("  2. adult_income_demo0.csv");
+        System.out.println("  3. adult_income_demo1.csv");
+        System.out.println("  4. adult_income_demo2.csv");
+        System.out.println("  5. adult_income_demo3.csv");
+        System.out.println("  6. adult_income_demo4.csv");
         System.out.print("\nEnter an option: ");
         
         int choice = 1;
@@ -102,15 +107,37 @@ public class Main {
             choice = Integer.parseInt(scanner.nextLine().trim());
         } catch (NumberFormatException e) {
             System.out.println("Invalid input, using option 1");
-            choice = 1;
         }
+
+        // Map menu choices to file paths
+        switch (choice) {
+            case 1:
+                dataPath = "../../data/adult_income_cleaned.csv";
+                break;
+            case 2:
+                dataPath = "../../data/adult_income_demo0.csv";
+                break;
+            case 3:
+                dataPath = "../../data/adult_income_demo1.csv";
+                break;
+            case 4:
+                dataPath = "../../data/adult_income_demo2.csv";
+                break;
+            case 5:
+                dataPath = "../../data/adult_income_demo3.csv";
+                break;
+            case 6:
+                dataPath = "../../data/adult_income_demo4.csv";
+                break;
+            default:
+                System.out.println("Invalid option, defaulting to option 1");
+                dataPath = "../../data/adult_income_cleaned.csv";
+    }
+
+    System.out.println("\nLoading dataset: " + dataPath);
+    System.out.println("************************************");
     
-        if (choice != 1) {
-            System.out.println("Only option 1 is available. Loading adult_income_cleaned.csv");
-        }
-    
-        System.out.println("\nLoading and cleaning input data set:");
-        System.out.println("************************************");
+        
     
         try {
             //Load the CSV file,make sure its the clean one!
