@@ -165,21 +165,97 @@
           (incf offset width)))
       (values specs offset))))
 
+
+      (defun encode-target-from-rows (rows tidx target-name)
+  "Given ROWS (vector of row vectors) and target column index TIDX,
+   return a numeric vector Y (double-float).
+   - If target values are numeric with >2 unique values → regression (keep numeric).
+   - If target values are numeric with exactly 2 unique values → map to 0/1.
+   - If target values are strings with exactly 2 unique values → map to 0/1.
+   - Otherwise signal an error (multiclass not supported)."
+  (let* ((n (length rows))
+         (labels (make-array n :element-type 'string)))
+    ;; collect raw labels as strings
+    (loop for i below n do
+      (setf (aref labels i)
+            (trim (aref (aref rows i) tidx))))
+    ;; try numeric interpretation first
+    (let ((numeric-values (make-array n :element-type 'double-float))
+          (all-numeric t))
+      (loop for i below n do
+        (let* ((s (aref labels i))
+               (num (parse-float-or-nil s)))
+          (if num
+              (setf (aref numeric-values i) num)
+              (setf all-numeric nil))))
+      (cond
+        ;; --- all numeric ---
+        (all-numeric
+         (let* ((unique (remove-duplicates (coerce numeric-values 'list) :test #'=))
+                (num-unique (length unique))
+                (y (make-array n :element-type 'double-float)))
+           (cond
+             ;; >2 unique numeric values → regression
+             ((> num-unique 2)
+              (loop for i below n do
+                (setf (aref y i) (aref numeric-values i)))
+              y)
+             ;; exactly 2 unique numeric values → map to 0/1
+             ((= num-unique 2)
+              (let* ((sorted (sort (copy-list unique) #'<))
+                     (v0 (first sorted))
+                     (v1 (second sorted)))
+                (loop for i below n do
+                  (setf (aref y i)
+                        (if (= (aref numeric-values i) v0)
+                            0.0d0
+                            1.0d0)))
+                y))
+             ;; all same numeric value → treat as regression constant
+             (t
+              (loop for i below n do
+                (setf (aref y i) (aref numeric-values i)))
+              y))))
+        ;; --- not all numeric: treat as string labels ---
+        (t
+         (let* ((unique (remove-duplicates (coerce labels 'list)
+                                           :test #'string-equal))
+                (num-unique (length unique))
+                (y (make-array n :element-type 'double-float)))
+           (cond
+             ;; exactly 2 distinct string labels → binary classification
+             ((= num-unique 2)
+              (let* ((u1 (first unique))
+                     (u2 (second unique)))
+                (loop for i below n do
+                  (let ((lab (aref labels i)))
+                    (setf (aref y i)
+                          (if (string-equal lab u1)
+                              0.0d0
+                              1.0d0)))))
+              y)
+             (t
+              (error "Target column ~A has ~D distinct categories (~S).~%~
+This demo only supports numeric regression or binary (2-class) classification."
+                     target-name num-unique unique)))))))))
+
+
 (defun table->encoded (headers rows target-name)
-  "Return (X y specs). X is numeric with one-hot encoding for categoricals."
+  "Return (X y specs). X is numeric with one-hot encoding for categoricals.
+   Target column is encoded via ENCODE-TARGET-FROM-ROWS."
   (multiple-value-bind (specs totalw)
       (detect-schema headers rows target-name)
     (let* ((tidx (column-index headers target-name))
            (n (length rows))
            (X (make-array (list n totalw) :element-type 'double-float))
-           (y (make-array n :element-type 'double-float)))
+           (y (encode-target-from-rows rows tidx target-name)))
       (loop for i from 0 below n do
         (let ((row (aref rows i))
               (feat-col 0))
-          (setf (aref y i) (ensure-binary (aref row tidx)))
+          ;; build features from all columns except the target column
           (loop for j from 0 below (length headers) do
             (unless (= j tidx)
-              (let* ((spec (aref specs feat-col)))
+              (let ((spec (aref specs feat-col)))
                 (ecase (feat-spec-kind spec)
                   (:num
                    (let* ((raw (aref row j))
@@ -201,6 +277,7 @@
                          (setf (aref X i (+ off idx)) 1.0d0)))))))
               (incf feat-col)))))
       (values X y specs))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Normalization (only numeric columns)
@@ -387,6 +464,45 @@
   (* 1000.0d0
      (/ (- (get-internal-real-time) start)
         internal-time-units-per-second)))
+
+        ;;; --------------------------------------------------------------------------
+;;; Task type detection + guard for classification algorithms
+;;; --------------------------------------------------------------------------
+
+(defun infer-task-type (y)
+  "Infer whether label vector Y is regression or binary classification."
+  (let* ((values (coerce y 'list))
+         (unique (remove-duplicates values :test #'=))
+         (num-unique (length unique)))
+    (cond
+      ;; numeric + exactly 2 unique values → binary classification
+      ((and (every #'numberp unique)
+            (= num-unique 2))
+       :binary-classification)
+      ;; numeric + many distinct values → regression
+      ((every #'numberp unique)
+       :regression)
+      ;; fallback: treat as general classification (not supported by 3–6)
+      (t
+       :classification))))
+
+(defun require-binary-classification (ds)
+  "Return T if DS has a binary target, otherwise print a message and return NIL."
+  (let* ((y      (getf ds :y))
+         (target (getf ds :target))
+         (values (coerce y 'list))
+         (unique (remove-duplicates values :test #'=))
+         (num-unique (length unique)))
+    (cond
+      ((= num-unique 2)
+       t)  ;; OK: exactly two classes
+      (t
+       (format t "Current target '~A' has ~D unique values (~S).~%~
+Classification algorithms (3–6) require a binary target (2 classes, e.g., income).~%"
+               target num-unique unique)
+       nil)))
+)
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Logistic Regression (binary, L2)
@@ -979,9 +1095,14 @@
                                  (normalize-numeric-columns X specs)
                                (declare (ignore means stds))
                                (setf X Xn)))
-                           (setf ds (list :X X :y y))
-                           (format t "Loaded ~D rows, ~D features (after encoding).~%"
-                                   (rows X) (cols X)))
+                           ;; store dataset + metadata (target name + task type)
+                           (let ((task-type (infer-task-type y)))
+                             (setf ds (list :X X :y y
+                                            :target target
+                                            :task-type task-type))
+                             (format t "Loaded ~D rows, ~D features (after encoding).~%"
+                                     (rows X) (cols X))
+                             (format t "Target: ~A (~A)~%" target task-type)))
                        (error (e)
                          (format t "Error during encoding: ~A~%" e)))))
                (file-error (e)
@@ -995,50 +1116,53 @@
                (format t "Load data first (option 1).~%")
                (linear-regression-run ds)))
 
-          ;; Logistic Regression with runtime params
+          ;; Logistic Regression with runtime params (binary only)
           ((string= choice "3")
            (if (null ds)
                (format t "Load data first (option 1).~%")
-               (let* ((epochs-str (trim (prompt "Epochs [default: 400]: ")))
-                      (lr-str     (trim (prompt "Learning rate [default: 0.2]: ")))
-                      (l2-str     (trim (prompt "L2 [default: 0.003]: ")))
-                      (epochs (if (string= epochs-str "")
-                                  400
-                                  (parse-integer epochs-str)))
-                      (lr     (if (string= lr-str "")
-                                  0.2d0
-                                  (parse-number lr-str)))
-                      (l2     (if (string= l2-str "")
-                                  0.003d0
-                                  (parse-number l2-str))))
-                 (logistic-regression-run ds
-                                          :epochs epochs
-                                          :lr lr
-                                          :l2 l2))))
+               (when (require-binary-classification ds)
+                 (let* ((epochs-str (trim (prompt "Epochs [default: 400]: ")))
+                        (lr-str     (trim (prompt "Learning rate [default: 0.2]: ")))
+                        (l2-str     (trim (prompt "L2 [default: 0.003]: ")))
+                        (epochs (if (string= epochs-str "")
+                                    400
+                                    (parse-integer epochs-str)))
+                        (lr     (if (string= lr-str "")
+                                    0.2d0
+                                    (parse-number lr-str)))
+                        (l2     (if (string= l2-str "")
+                                    0.003d0
+                                    (parse-number l2-str))))
+                   (logistic-regression-run ds
+                                            :epochs epochs
+                                            :lr lr
+                                            :l2 l2)))))
 
-          ;; k-NN
+          ;; k-NN (binary only)
           ((string= choice "4")
            (if (null ds)
                (format t "Load data first (option 1).~%")
-               (let* ((k-str (trim (prompt "k [default: 7]: ")))
-                      (k (if (string= k-str "")
-                             7
-                             (parse-integer k-str))))
-                 (knn-run ds :k k))))
+               (when (require-binary-classification ds)
+                 (let* ((k-str (trim (prompt "k [default: 7]: ")))
+                        (k (if (string= k-str "")
+                               7
+                               (parse-integer k-str))))
+                   (knn-run ds :k k)))))
 
-          ;; ID3
+          ;; ID3 Decision Tree (binary only)
           ((string= choice "5")
            (if (null ds)
                (format t "Load data first (option 1).~%")
-               ;; call with no extra kwargs → uses id3-run's defaults
-                 (id3-run ds)))
-              
+               (when (require-binary-classification ds)
+                 ;; call with no extra kwargs → uses id3-run's defaults
+                 (id3-run ds))))
 
-          ;; Gaussian Naive Bayes
+          ;; Gaussian Naive Bayes (binary only)
           ((string= choice "6")
            (if (null ds)
                (format t "Load data first (option 1).~%")
-               (gnb-run ds)))
+               (when (require-binary-classification ds)
+                 (gnb-run ds))))
 
           ;; Quit
           ((string= choice "7")
@@ -1049,5 +1173,6 @@
 
 ;;; Auto-start menu upon load:
 (fp:main)
+
 
 ;;; End of file
